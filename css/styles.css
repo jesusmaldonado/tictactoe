@@ -1,0 +1,56 @@
+body {
+  background-size: cover;
+  background-color: #000000;
+  text-align: center;
+  color: white;
+  font: 20px "Arial Black", Gadget, sans-serif;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+h1 {
+  font-size: 30px;
+}
+
+form,
+form * {
+  margin: 5px;
+  font: 16px "Arial Black", Gadget, sans-serif;
+}
+
+#grid {
+  display: grid;
+  margin: 25px;
+  grid-template-columns: 20vw 20vw 20vw;
+  grid-template-rows: 20vh 20vh 20vh;
+  user-select: none;
+}
+
+#result {
+  margin: 10px;
+}
+
+.cell {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  border: 1px solid white;
+  background-color: black;
+  color: white;
+  font: 50px sans-serif;
+  line-height: 80px;
+  text-align: center;
+  contain: content;
+}
+
+.cell.win {
+  color: #22ff00;
+  background-color: #0b4f00;
+}
+
+.hidden {
+  display: none;
+}

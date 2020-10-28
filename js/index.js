@@ -7,7 +7,6 @@ let counters = [
 let player = 0;
 let moves = 0;
 let end = false;
-
 window.addEventListener("popstate", (event) => {
   const priorState = JSON.parse(window.sessionStorage.getItem("priorState"));
   if (Array.isArray(priorState) && priorState.length) {
@@ -18,6 +17,7 @@ window.addEventListener("popstate", (event) => {
       lastPlayer,
       lastIdAdded,
     } = priorState.pop();
+    console.table(lastCounters);
     counters = lastCounters;
     end = lastEnd;
     player = lastPlayer;
@@ -27,6 +27,9 @@ window.addEventListener("popstate", (event) => {
       .querySelectorAll(".win")
       .forEach((el) => el.classList.remove("win"));
     Array.from(el.children).forEach((c) => c.classList.add("hidden"));
+    document
+      .querySelector(`span[data-computer="${moves + 2}"]`)
+      .classList.add("hidden");
     document.getElementById("result").innerHTML = "";
     window.sessionStorage.setItem("priorState", JSON.stringify(priorState));
   }
@@ -97,6 +100,7 @@ function reset() {
     c.classList.remove("win");
     Array.from(c.children).forEach((c) => {
       c.classList.add("hidden");
+      c.removeAttribute("data-computer");
     });
   });
 
@@ -113,45 +117,130 @@ function reset() {
   end = false;
 }
 
+function computerMove() {
+  // board for best potential places
+  const board = [
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+  ];
+
+  // goes through each win counter
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+      var cellNo = 3 * i + j;
+      if (document.getElementById(`${cellNo}`).innerText !== "") {
+        board[i][j] = -50;
+      }
+
+      // rows/columns
+      // computers counters
+      board[i][j] += 2 * Math.pow(counters[player][i], 3);
+      board[j][i] += 2 * Math.pow(counters[player][i + 3], 3);
+
+      // players counters
+      board[i][j] += Math.pow(counters[(player + 1) % 2][i], 3);
+      board[j][i] += Math.pow(counters[(player + 1) % 2][i + 3], 3);
+
+      // different counters on the same row
+      if (counters[0][i] > 0 && counters[1][i] > 0) {
+        board[i][j] -= 3;
+      }
+
+      // different counters on the same column
+      if (counters[0][i + 3] > 0 && counters[1][i + 3] > 0) {
+        board[j][i] -= 3;
+      }
+    }
+    // diagonals
+    // computers counters
+    board[i][i] += 2 * Math.pow(counters[player][6], 3);
+    board[i][2 - i] += 2 * Math.pow(counters[player][7], 3);
+
+    // players counters
+    board[i][i] += Math.pow(counters[(player + 1) % 2][6], 3);
+    board[i][2 - i] += Math.pow(counters[(player + 1) % 2][7], 3);
+
+    // different counters on the diagonals
+    if (counters[0][6] > 0 && counters[1][6] > 0) {
+      board[i][i] -= 3;
+    }
+    if (counters[0][7] > 0 && counters[1][7] > 0) {
+      board[i][2 - i] -= 3;
+    }
+  }
+
+  let max = 0;
+  let maxList = [];
+  // get an array of all occurences of the 'best' position
+  board.flat().forEach((n, idx) => {
+    if (n > max) {
+      max = n;
+      maxList = [idx];
+    } else if (n === max) {
+      maxList.push(idx);
+    }
+  });
+  const idx = Math.floor(Math.random() * maxList.length);
+  const randomIdx = maxList[idx];
+  return [Math.floor(randomIdx / 3), randomIdx % 3, randomIdx];
+}
+
+function toggleClass(player, id, cell) {
+  const classToToggle = ["circle", "cross"][player];
+  // display O/X
+  let cellToDraw = Boolean(cell) ? cell : document.getElementById(id);
+
+  const span = cellToDraw.querySelector(`.${classToToggle}`);
+  span.classList.remove("hidden");
+  !Boolean(cell) ? (span.dataset[`computer`] = moves) : null;
+}
+
+function turn(cellRow, cellCol, id, cell) {
+  // increase moves taken
+  moves++;
+
+  // update the counters for the potential wins
+  updateCounters(cellRow, cellCol);
+  // draw X or O
+  toggleClass(player, id, cell);
+  // check for a winner/draw
+  checkWinner();
+
+  // next player
+  player = player === 0 ? 1 : 0;
+}
+
 document.getElementById("grid").addEventListener("click", (eventObject) => {
   if (!end) {
     // get cell div
     const cell = eventObject.target;
-
+    const { id, children } = cell;
     // row and column of cell
-    const cellRow = Math.floor(cell.id / 3);
-    const cellCol = cell.id % 3;
-    const isEmpty = Array.from(cell.children).every((c) =>
+    const cellRow = Math.floor(id / 3);
+    const cellCol = id % 3;
+    const isEmpty = Array.from(children).every((c) =>
       c.classList.contains("hidden")
     );
-    const classToToggle = ["circle", "cross"][player];
 
     // check position is empty
     if (isEmpty) {
       let priorState = JSON.parse(sessionStorage.getItem("priorState")) || [];
       const currentState = {
-        lastCounters: counters,
+        lastCounters: counters.map((el) => el),
         lastPlayer: player,
         lastMoves: moves,
         lastEnd: end,
-        lastIdAdded: cell.id,
+        lastIdAdded: id,
       };
-      priorState.push(currentState);
+      priorState.push({ ...currentState });
       sessionStorage.setItem("priorState", JSON.stringify(priorState));
-      // display O/X
-      cell.querySelector(`.${classToToggle}`).classList.toggle("hidden");
-      // increase moves taken
-      moves++;
 
-      // update the counters for the potential wins
-      updateCounters(cellRow, cellCol);
+      turn(cellRow, cellCol, id, cell);
+      // computers turn
+      const [computerCellRow, computerCellCol, idx] = computerMove();
 
-      // check for a winner/draw
-      checkWinner();
-
-      // next player
-      player = player === 0 ? 1 : 0;
-
+      turn(computerCellRow, computerCellCol, idx, null);
       window.history.pushState({}, "", "index.html");
     }
   }
